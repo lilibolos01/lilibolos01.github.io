@@ -155,8 +155,12 @@ export async function formOrcamento(id = 'novo', extra = '') {
       <form id="form">
         <div class="card">
           <h2>${icone('clientes')} Cliente</h2>
-          <label class="campo"><span>Nome</span><input id="clienteNome" list="dlClientes" autocomplete="off" value="${esc(o.clienteNome || '')}" placeholder="Nome do cliente"></label>
-          <datalist id="dlClientes">${clientes.map(c => `<option value="${esc(c.nome)}">`).join('')}</datalist>
+          <div class="campo"><span>Nome</span>
+            <div class="escolher-cli">
+              <input id="clienteNome" autocomplete="off" value="${esc(o.clienteNome || '')}" placeholder="${clientes.length ? 'Toque para escolher ou digite' : 'Nome do cliente'}">
+              <div id="sugCli" class="sugestoes" hidden></div>
+            </div>
+          </div>
           <label class="campo"><span>WhatsApp</span><input id="clienteTel" inputmode="tel" value="${esc(o.clienteTel || '')}" placeholder="(51) 99999-9999"></label>
         </div>
 
@@ -360,7 +364,32 @@ export async function formOrcamento(id = 'novo', extra = '') {
         atualizar();
       };
 
-      $('#clienteNome', el).onchange = () => {
+      // Lista dos clientes cadastrados: abre ao tocar no nome e filtra enquanto digita
+      const inpCli = $('#clienteNome', el), sugCli = $('#sugCli', el);
+      const mostrarClientes = () => {
+        if (!clientes.length) return;
+        const t = inpCli.value.trim().toLowerCase();
+        const lista = clientes.filter(c => !t || `${c.nome} ${c.telefone || ''}`.toLowerCase().includes(t));
+        sugCli.innerHTML = lista.length
+          ? lista.map(c => `<button type="button" data-id="${c.id}"><b>${esc(c.nome)}</b><small>${esc(c.telefone || 'sem telefone')}</small></button>`).join('')
+          : '<div class="sug-vazio">Cliente novo: será cadastrado ao salvar</div>';
+        sugCli.hidden = false;
+      };
+      inpCli.onfocus = mostrarClientes;
+      inpCli.onclick = mostrarClientes;
+      inpCli.oninput = mostrarClientes;
+      inpCli.onblur = () => setTimeout(() => { sugCli.hidden = true; }, 200);
+      sugCli.onmousedown = e => e.preventDefault(); // não fecha a lista antes de escolher
+      sugCli.onclick = e => {
+        const b = e.target.closest('button[data-id]');
+        if (!b) return;
+        const c = clientes.find(x => x.id === b.dataset.id);
+        inpCli.value = c.nome;
+        $('#clienteTel', el).value = c.telefone || '';
+        sugCli.hidden = true;
+        inpCli.blur();
+      };
+      inpCli.onchange = () => {
         const c = clientes.find(x => x.nome.toLowerCase() === v('clienteNome').trim().toLowerCase());
         if (c && !v('clienteTel')) $('#clienteTel', el).value = c.telefone || '';
       };
