@@ -109,7 +109,7 @@ export async function formOrcamento(id = 'novo', extra = '') {
       clienteNome: orig.clienteNome, clienteTel: orig.clienteTel, clienteId: orig.clienteId,
       massaId: orig.massaId || orig.receitaId, camadas: orig.camadas, recheioIds: [...(orig.recheioIds || [])],
       coberturaId: orig.coberturaId || '', extras: (orig.extras || []).map(e => ({ ...e })),
-      fatias: orig.fatias, descricao: orig.descricao, foto: orig.foto,
+      fatias: orig.fatias, nomeBolo: orig.nomeBolo || '', descricao: orig.descricao, foto: orig.foto,
       entrega: orig.entrega, lucro: orig.lucro, obs: orig.obs, status: 'orcamento',
     };
   } else if (id === 'novo') {
@@ -158,6 +158,12 @@ export async function formOrcamento(id = 'novo', extra = '') {
           <label class="campo"><span>Nome</span><input id="clienteNome" list="dlClientes" autocomplete="off" value="${esc(o.clienteNome || '')}" placeholder="Nome do cliente"></label>
           <datalist id="dlClientes">${clientes.map(c => `<option value="${esc(c.nome)}">`).join('')}</datalist>
           <label class="campo"><span>WhatsApp</span><input id="clienteTel" inputmode="tel" value="${esc(o.clienteTel || '')}" placeholder="(51) 99999-9999"></label>
+        </div>
+
+        <div class="card">
+          <h2>${icone('bolo')} Nome do bolo</h2>
+          <label class="campo"><span>Como vai aparecer no orçamento</span><input id="nomeBolo" value="${esc(o.nomeBolo || '')}" placeholder="Ex.: Bolo Floresta Negra"></label>
+          <small class="dica">Logo abaixo do nome, o orçamento mostra a massa e os recheios escolhidos.</small>
         </div>
 
         <div class="card">
@@ -402,7 +408,8 @@ export async function formOrcamento(id = 'novo', extra = '') {
           clienteId: cli.id, clienteNome: nome, clienteTel: tel,
           massaId: m.massa.id, camadas: camadas(), recheioIds: o.recheioIds.slice(0, camadas()),
           coberturaId: m.cobertura?.id || '', extras: extrasUsados,
-          montagem: desc, receitaNome: resumoBolo(desc), fatias: Math.round(fatias),
+          nomeBolo: v('nomeBolo').trim(), montagem: desc, fatias: Math.round(fatias),
+          receitaNome: [v('nomeBolo').trim(), resumoBolo(desc)].filter(Boolean).join(' · '),
           descricao: v('descricao').trim(), dataEntrega: v('dataEntrega'), hora: v('hora'),
           entrega: $('input[name=entrega]:checked', el).value, obs: v('obs').trim(),
           custoDireto: c.direto, indiretoPct: c.indiretoPct, indireto: c.indireto, custoTotal: c.total,

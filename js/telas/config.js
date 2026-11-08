@@ -37,9 +37,7 @@ export async function config() {
 
         <div class="card">
           <h2>Textos do orçamento</h2>
-          <label class="campo"><span>Retirada no local</span><textarea id="textoRetirada">${esc(c.textoRetirada)}</textarea></label>
-          <label class="campo"><span>Entrega por Uber</span><textarea id="textoUber">${esc(c.textoUber)}</textarea></label>
-          <label class="campo"><span>Observação padrão</span><textarea id="obsPadrao">${esc(c.obsPadrao)}</textarea></label>
+          <label class="campo"><span>Observação padrão (deixe vazio para não sair nada)</span><textarea id="obsPadrao">${esc(c.obsPadrao)}</textarea></label>
         </div>
 
         <button class="bt cheio largo" type="submit">${icone('ok')} Salvar configurações</button>
@@ -67,7 +65,7 @@ export async function config() {
           pix: v('pix'), cnpj: v('cnpj'),
           sinalPct: num(v('sinalPct')), validadeDias: Math.max(1, Math.round(num(v('validadeDias')))),
           indiretoPct: num(v('indiretoPct')),
-          textoRetirada: v('textoRetirada'), textoUber: v('textoUber'), obsPadrao: v('obsPadrao'),
+          obsPadrao: v('obsPadrao'),
         });
         toast('Configurações salvas');
         voltar('#/');

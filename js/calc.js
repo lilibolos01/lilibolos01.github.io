@@ -137,6 +137,16 @@ export function nomeBolo(m) {
   return recheios.length ? juntar(recheios) : (m?.massa || 'Bolo');
 }
 
+// Frase do orçamento: "Massa de chocolate com recheio de Prestígio e Paçoca"
+export function fraseMassa(m) {
+  if (!m) return '';
+  let massa = String(m.massa || '').trim();
+  if (massa && !/^massa\b/i.test(massa)) massa = 'Massa ' + massa.charAt(0).toLowerCase() + massa.slice(1);
+  const recheios = [...new Set(m.recheios || [])];
+  if (!recheios.length) return massa;
+  return `${massa || 'Bolo'} com recheio de ${juntar(recheios)}`;
+}
+
 // O que vem no bolo: "Massa de chocolate · 2 camadas: Prestígio e Morango com nata · Cobertura: Merengue suíço"
 export function textoVem(m) {
   if (!m) return '';

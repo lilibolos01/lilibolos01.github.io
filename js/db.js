@@ -19,7 +19,7 @@ export const CONFIG_PADRAO = {
   indiretoPct: 5,
   textoRetirada: 'Retirada no local, no endereço da LiLi Bolos, no dia e horário combinados.',
   textoUber: 'A coleta/entrega é por conta do cliente. Se preferir, podemos chamar um Uber para levar o bolo até você, e a corrida é paga pelo cliente.',
-  obsPadrao: 'A data só fica reservada após o pagamento do sinal.',
+  obsPadrao: '',
   ultimoNumero: 0,
 };
 
@@ -65,9 +65,14 @@ export async function salvarVarios(tabela, lista) {
   await pedido(tabela, 'readwrite', s => { for (const o of lista) s.put(o); });
 }
 
+export const OBS_ANTIGA = 'A data só fica reservada após o pagamento do sinal.';
+
 export async function lerConfig() {
   const c = await buscar('config', 'geral');
-  return { ...CONFIG_PADRAO, ...(c || {}) };
+  const cfg = { ...CONFIG_PADRAO, ...(c || {}) };
+  // A frase antiga do sinal saiu do orçamento
+  if (cfg.obsPadrao === OBS_ANTIGA) cfg.obsPadrao = '';
+  return cfg;
 }
 
 export async function salvarConfig(c) {
