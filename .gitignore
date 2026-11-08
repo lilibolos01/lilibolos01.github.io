@@ -1,0 +1,10 @@
+# Publica somente os arquivos do app; o resto da pasta (capturas, logos, plano) fica só no computador
+/*
+!/.gitignore
+!/index.html
+!/manifest.webmanifest
+!/sw.js
+!/css/
+!/js/
+!/img/
+!/COMO-PUBLICAR.md
