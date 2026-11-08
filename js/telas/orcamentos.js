@@ -5,7 +5,7 @@ import {
 } from '../ui.js';
 import { custoBolo, calcularPreco, consumoDe, tipoDe, precoPorBase, SIGLA_BASE, UNIDADES_RECEITA } from '../calc.js';
 import { voltar, recarregar, substituir } from '../nav.js';
-import { desenharOrcamento, canvasParaPdf, canvasParaJpeg } from '../pdf.js';
+import { desenharOrcamento, jpegParaPdf, canvasParaJpeg } from '../pdf.js';
 
 const MAX_CAMADAS = 5;
 
@@ -119,7 +119,9 @@ export async function formOrcamento(id = 'novo', extra = '') {
     // rs = recheio de cada camada (id1,id2…); r = mesmo recheio em n camadas
     const rs = p.get('rs') ? p.get('rs').split(',').filter(id => porId.has(id)) : null;
     const camadas = rs?.length || Number(p.get('n')) || 2;
+    const cliente = clientes.find(c => c.id === p.get('cli'));
     o = {
+      clienteNome: cliente?.nome || '', clienteTel: cliente?.telefone || '',
       status: 'orcamento', entrega: 'retirada', obs: cfg.obsPadrao, lucro: 0,
       massaId: massa?.id || '', fatias: Number(p.get('f')) || massa?.fatias || '', foto: massa?.foto || '',
       camadas, recheioIds: rs?.length ? rs : p.get('r') ? Array(camadas).fill(p.get('r')) : [],
@@ -546,12 +548,17 @@ export async function verOrcamento(id) {
         if (c) c.onchange = () => { o[k] = c.checked; salvarO(c.checked ? 'Pagamento registrado' : 'Pagamento desmarcado'); };
       });
 
+      // A imagem é gerada uma única vez, logo ao abrir, e reaproveitada na prévia, no envio como
+      // imagem e no PDF. Ler o desenho de novo depois de abrir o WhatsApp podia dar imagem preta.
       const canvas = await desenharOrcamento(o, cfg);
-      $('#previa', el).src = canvas.toDataURL('image/jpeg', 0.75);
+      const { width, height } = canvas;
+      const jpeg = await canvasParaJpeg(canvas);
+      canvas.width = canvas.height = 0; // libera a memória do desenho
+      $('#previa', el).src = URL.createObjectURL(jpeg);
       let pdf;
-      const obterPdf = async () => (pdf ||= await canvasParaPdf(canvas, `Orçamento ${numeroOrc(o.numero)} - ${o.clienteNome}`));
+      const obterPdf = async () => (pdf ||= await jpegParaPdf(jpeg, width, height, `Orçamento ${numeroOrc(o.numero)} - ${o.clienteNome}`));
       $('#btPdf', el).onclick = async () => compartilharArquivo(await obterPdf(), nomeArquivo(o, 'pdf'), 'Orçamento LiLi Bolos');
-      $('#btImg', el).onclick = async () => compartilharArquivo(await canvasParaJpeg(canvas), nomeArquivo(o, 'jpg'), 'Orçamento LiLi Bolos');
+      $('#btImg', el).onclick = async () => compartilharArquivo(jpeg, nomeArquivo(o, 'jpg'), 'Orçamento LiLi Bolos');
       $('#btBaixar', el).onclick = async () => { baixarArquivo(await obterPdf(), nomeArquivo(o, 'pdf')); toast('PDF salvo em Downloads'); };
     },
   };

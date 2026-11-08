@@ -35,27 +35,28 @@ function quebrarTexto(ctx, texto, largura) {
   return linhas;
 }
 
-function escrever(ctx, texto, x, y, { tam = 26, peso = 400, cor = COR.texto, fonte = SANS, largura = 0, entre = 1.35, alinhar = 'left', max = 99, estilo = '' } = {}) {
+// medir = true só calcula a altura, sem desenhar
+function escrever(ctx, texto, x, y, { tam = 26, peso = 400, cor = COR.texto, fonte = SANS, largura = 0, entre = 1.35, alinhar = 'left', max = 99, estilo = '', medir = false } = {}) {
   ctx.font = `${estilo} ${peso} ${tam}px ${fonte}`;
   ctx.fillStyle = cor;
   ctx.textAlign = alinhar;
   ctx.textBaseline = 'top';
   let linhas = largura ? quebrarTexto(ctx, texto, largura) : [String(texto)];
   if (linhas.length > max) { linhas = linhas.slice(0, max); linhas[max - 1] += '…'; }
-  linhas.forEach((l, n) => ctx.fillText(l, x, y + n * tam * entre));
+  if (!medir) linhas.forEach((l, n) => ctx.fillText(l, x, y + n * tam * entre));
   return y + linhas.length * tam * entre;
 }
 
 function rotulo(ctx, texto, x, y) {
   ctx.save();
-  ctx.font = `700 21px ${SANS}`;
+  ctx.font = `700 24px ${SANS}`;
   ctx.fillStyle = COR.rosaForte;
   ctx.textBaseline = 'top';
   ctx.textAlign = 'left';
   if ('letterSpacing' in ctx) ctx.letterSpacing = '3px';
   ctx.fillText(texto.toUpperCase(), x, y);
   ctx.restore();
-  return y + 32;
+  return y + 36;
 }
 
 function caixa(ctx, x, y, w, h, r, cor) {
@@ -83,125 +84,133 @@ export async function desenharOrcamento(o, cfg) {
   const canvas = document.createElement('canvas');
   canvas.width = L * ESCALA;
   canvas.height = A * ESCALA;
-  const ctx = canvas.getContext('2d');
+  // willReadFrequently mantém o desenho na memória comum (no Android, a memória de vídeo
+  // é descartada quando o app vai para segundo plano, e a imagem sairia preta)
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   ctx.scale(ESCALA, ESCALA);
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, L, A);
 
   // Faixa bordô com o logo
-  const faixa = 360;
+  const faixa = 320;
   ctx.fillStyle = COR.bordo;
   ctx.fillRect(0, 0, L, faixa);
   if (logo) {
     // Recorta as margens do logo (mesma cor da faixa) para ele aparecer maior
     const sx = logo.width * 0.05, sy = logo.height * 0.12, sw = logo.width * 0.9, sh = logo.height * 0.82;
-    const h = faixa - 40, w = h * sw / sh;
-    ctx.drawImage(logo, sx, sy, sw, sh, (L - w) / 2, 20, w, h);
+    const h = faixa - 36, w = h * sw / sh;
+    ctx.drawImage(logo, sx, sy, sw, sh, (L - w) / 2, 18, w, h);
   } else {
-    escrever(ctx, cfg.empresa, L / 2, 130, { tam: 90, fonte: SERIF, estilo: 'italic', cor: COR.rosa, alinhar: 'center' });
+    escrever(ctx, cfg.empresa, L / 2, 110, { tam: 90, fonte: SERIF, estilo: 'italic', cor: COR.rosa, alinhar: 'center' });
   }
   ctx.fillStyle = COR.rosa;
   ctx.fillRect(0, faixa, L, 8);
 
   // Título
-  const M = 70;
-  let y = faixa + 50;
-  escrever(ctx, 'Orçamento', M, y, { tam: 58, fonte: SERIF, estilo: 'italic', peso: 700, cor: COR.bordo });
+  const M = 70, LARG = L - 2 * M;
+  let y = faixa + 38;
+  escrever(ctx, 'Orçamento', M, y, { tam: 54, fonte: SERIF, estilo: 'italic', peso: 700, cor: COR.bordo });
   const larguraTitulo = ctx.measureText('Orçamento').width;
-  escrever(ctx, `nº ${numeroOrc(o.numero)}`, M + larguraTitulo + 22, y + 20, { tam: 32, peso: 600, cor: COR.rosaForte });
+  escrever(ctx, `nº ${numeroOrc(o.numero)}`, M + larguraTitulo + 20, y + 18, { tam: 30, peso: 600, cor: COR.rosaForte });
   const emissao = (o.dataEmissao || '').slice(0, 10);
-  escrever(ctx, `Emitido em ${dataBR(emissao)}`, L - M, y + 4, { tam: 24, cor: COR.cinza, alinhar: 'right' });
-  escrever(ctx, `Válido até ${dataBR(addDias(emissao, Number(cfg.validadeDias) || 7))}`, L - M, y + 36, { tam: 24, peso: 600, cor: COR.bordo, alinhar: 'right' });
-  y += 110;
+  escrever(ctx, `Emitido em ${dataBR(emissao)}`, L - M, y + 4, { tam: 23, cor: COR.cinza, alinhar: 'right' });
+  escrever(ctx, `Válido até ${dataBR(addDias(emissao, Number(cfg.validadeDias) || 7))}`, L - M, y + 34, { tam: 23, peso: 600, cor: COR.bordo, alinhar: 'right' });
+  y += 96;
 
-  // Foto + dados
-  const fotoW = 500, colX = M + fotoW + 50, colW = L - M - colX;
-  if (foto) fotoCobrindo(ctx, foto, M, y, fotoW, fotoW, 26);
+  // ---------- Parte de baixo (desenhada a partir do rodapé): observação e valor ----------
+  const rod = 120;
+  const topoRodape = A - rod;
+  let yBaixo = topoRodape - 18;
+  if (o.obs) {
+    ctx.font = `400 22px ${SANS}`;
+    const n = Math.min(2, quebrarTexto(ctx, o.obs, LARG).length);
+    yBaixo -= n * 22 * 1.35;
+    escrever(ctx, o.obs, L / 2, yBaixo, { tam: 22, cor: COR.cinza, alinhar: 'center', largura: LARG, max: 2 });
+    yBaixo -= 14;
+  }
+  const hv = 150;
+  const topoValor = yBaixo - hv;
+  caixa(ctx, M, topoValor, LARG, hv, 20, COR.bordo);
+  escrever(ctx, 'VALOR TOTAL', M + 36, topoValor + 26, { tam: 22, peso: 700, cor: COR.dourado });
+  escrever(ctx, `${o.fatias} fatias`, M + 36, topoValor + 58, { tam: 22, cor: COR.rosa });
+  escrever(ctx, brl(o.preco), L - M - 36, topoValor + 18, { tam: 54, peso: 700, cor: '#fff', alinhar: 'right' });
+  escrever(ctx, `Sinal ${String(o.sinalPct).replace('.', ',')}% para reservar a data: ${brl(o.sinal)}  ·  Restante na entrega: ${brl(o.restante)}`,
+    M + 36, topoValor + hv - 42, { tam: 21, cor: COR.rosaClaro });
+  if (cfg.pix) escrever(ctx, `Pix: ${cfg.pix}`, L - M - 36, topoValor + hv - 44, { tam: 23, peso: 700, cor: COR.dourado, alinhar: 'right' });
+
+  // ---------- Foto + Cliente + Retirada/Entrega (letras grandes) ----------
+  const fotoW = 400, colX = M + fotoW + 44, colW = L - M - colX;
+  if (foto) fotoCobrindo(ctx, foto, M, y, fotoW, fotoW, 24);
   else {
-    caixa(ctx, M, y, fotoW, fotoW, 26, COR.rosaClaro);
-    escrever(ctx, 'LiLi Bolos', M + fotoW / 2, y + fotoW / 2 - 30, { tam: 48, fonte: SERIF, estilo: 'italic', cor: COR.rosa, alinhar: 'center' });
+    caixa(ctx, M, y, fotoW, fotoW, 24, COR.rosaClaro);
+    escrever(ctx, 'LiLi Bolos', M + fotoW / 2, y + fotoW / 2 - 28, { tam: 46, fonte: SERIF, estilo: 'italic', cor: COR.rosa, alinhar: 'center' });
   }
 
-  let yc = rotulo(ctx, 'Cliente', colX, y + 4);
-  yc = escrever(ctx, o.clienteNome || '—', colX, yc, { tam: 34, peso: 700, largura: colW, max: 2 });
-  if (o.clienteTel) yc = escrever(ctx, o.clienteTel, colX, yc + 2, { tam: 27, cor: COR.cinza });
-  yc += 28;
+  let yc = rotulo(ctx, 'Cliente', colX, y);
+  yc = escrever(ctx, o.clienteNome || '—', colX, yc, { tam: 48, peso: 700, largura: colW, max: 2, entre: 1.2 });
+  if (o.clienteTel) yc = escrever(ctx, o.clienteTel, colX, yc + 4, { tam: 36, cor: COR.texto });
+  yc += 30;
 
-  yc = rotulo(ctx, 'Bolo', colX, yc);
-  const m = o.montagem;
-  if (m) {
-    yc = escrever(ctx, m.massa, colX, yc, { tam: 31, peso: 700, largura: colW, max: 2 });
-    m.recheios.forEach((r, n) => {
-      yc = escrever(ctx, `${n + 1}ª camada: ${r}`, colX, yc + 2, { tam: 25, largura: colW, max: 2 });
-    });
-    if (m.cobertura) yc = escrever(ctx, `Cobertura: ${m.cobertura}`, colX, yc + 2, { tam: 25, largura: colW, max: 2 });
-  } else {
-    yc = escrever(ctx, o.receitaNome || '', colX, yc, { tam: 31, peso: 700, largura: colW, max: 2 });
-  }
-  if (o.descricao) yc = escrever(ctx, o.descricao, colX, yc + 6, { tam: 24, largura: colW, max: 4, cor: COR.cinza });
-  if (m?.extras?.length) yc = escrever(ctx, `Inclui: ${m.extras.map(x => x.qtd > 1 ? `${x.nome} (${x.qtd})` : x.nome).join(', ')}`, colX, yc + 4, { tam: 23, largura: colW, max: 2, cor: COR.cinza });
-  yc = escrever(ctx, `Aproximadamente ${o.fatias} fatias`, colX, yc + 8, { tam: 27, peso: 600, cor: COR.rosaForte });
-  yc += 28;
-
-  yc = rotulo(ctx, o.entrega === 'uber' ? 'Entrega' : 'Retirada', colX, yc);
+  const uber = o.entrega === 'uber';
+  yc = rotulo(ctx, uber ? 'Entrega' : 'Retirada', colX, yc);
   if (o.dataEntrega) {
     const dia = diaSemana(o.dataEntrega);
-    yc = escrever(ctx, `${dia.charAt(0).toUpperCase() + dia.slice(1)}, ${dataBR(o.dataEntrega)}${o.hora ? ' às ' + o.hora : ''}`, colX, yc, { tam: 28, peso: 600, largura: colW });
+    yc = escrever(ctx, `${dia.charAt(0).toUpperCase() + dia.slice(1)}, ${dataBR(o.dataEntrega)}`, colX, yc, { tam: 38, peso: 700, largura: colW, max: 2, entre: 1.2 });
+    if (o.hora) yc = escrever(ctx, `às ${o.hora}`, colX, yc + 2, { tam: 38, peso: 700 });
   }
-  yc = escrever(ctx, o.entrega === 'uber' ? 'Entrega via Uber' : 'Retirada no local', colX, yc + 2, { tam: 26, cor: COR.cinza });
+  yc = escrever(ctx, uber ? 'Entrega via Uber' : 'Retirada no local', colX, yc + 6, { tam: 32, peso: 600, cor: COR.rosaForte });
+  const textoEntrega = uber ? cfg.textoUber : cfg.textoRetirada;
+  if (textoEntrega) yc = escrever(ctx, textoEntrega, colX, yc + 8, { tam: 23, cor: COR.cinza, largura: colW, max: 4 });
 
-  y = Math.max(y + fotoW, yc) + 40;
+  y = Math.max(y + fotoW, yc) + 34;
+  ctx.fillStyle = COR.rosaClaro;
+  ctx.fillRect(M, y, LARG, 3);
+  y += 26;
 
-  // Texto da entrega
-  const textoEntrega = o.entrega === 'uber' ? cfg.textoUber : cfg.textoRetirada;
-  if (textoEntrega) {
-    ctx.font = `400 25px ${SANS}`;
-    const linhas = quebrarTexto(ctx, textoEntrega, L - 2 * M - 60).length;
-    const h = linhas * 25 * 1.35 + 40;
-    caixa(ctx, M, y, L - 2 * M, h, 18, COR.creme);
-    escrever(ctx, textoEntrega, M + 30, y + 20, { tam: 25, largura: L - 2 * M - 60, cor: COR.texto });
-    y += h + 30;
-  }
+  // ---------- Bolo (largura inteira, letras grandes; diminui sozinho se não couber) ----------
+  const m = o.montagem;
+  const blocoBolo = (y0, s, medir) => {
+    const op = (tam, extra = {}) => ({ tam: Math.round(tam * s), largura: LARG, medir, ...extra });
+    let yb = medir ? y0 + 34 : rotulo(ctx, 'Bolo', M, y0);
+    if (m) {
+      yb = escrever(ctx, m.massa, M, yb, op(44, { peso: 700, max: 1 }));
+      m.recheios.forEach((r, n) => { yb = escrever(ctx, `${n + 1}ª camada: ${r}`, M, yb + 4 * s, op(34, { max: 1 })); });
+      if (m.cobertura) yb = escrever(ctx, `Cobertura: ${m.cobertura}`, M, yb + 4 * s, op(34, { max: 1 }));
+    } else {
+      yb = escrever(ctx, o.receitaNome || '', M, yb, op(44, { peso: 700, max: 2 }));
+    }
+    yb = escrever(ctx, `Aproximadamente ${o.fatias} fatias`, M, yb + 12 * s, op(38, { peso: 700, cor: COR.rosaForte }));
+    if (o.descricao) yb = escrever(ctx, o.descricao, M, yb + 10 * s, op(28, { cor: COR.cinza, max: 3 }));
+    if (m?.extras?.length) yb = escrever(ctx, `Inclui: ${m.extras.map(x => x.qtd > 1 ? `${x.nome} (${x.qtd})` : x.nome).join(', ')}`, M, yb + 6 * s, op(26, { cor: COR.cinza, max: 2 }));
+    return yb;
+  };
+  const limite = topoValor - 24;
+  let escalaBolo = 1;
+  while (escalaBolo > 0.6 && blocoBolo(y, escalaBolo, true) > limite) escalaBolo -= 0.05;
+  y = blocoBolo(y, escalaBolo, false);
 
-  // Valor total
-  const hv = 190;
-  caixa(ctx, M, y, L - 2 * M, hv, 22, COR.bordo);
-  escrever(ctx, 'VALOR TOTAL', M + 40, y + 42, { tam: 26, peso: 700, cor: COR.dourado });
-  escrever(ctx, `${o.fatias} fatias`, M + 40, y + 80, { tam: 24, cor: COR.rosa });
-  escrever(ctx, brl(o.preco), L - M - 40, y + 30, { tam: 76, peso: 700, cor: '#fff', alinhar: 'right' });
-  escrever(ctx, `Sinal de ${String(o.sinalPct).replace('.', ',')}% para reservar a data: ${brl(o.sinal)}   ·   Restante na entrega: ${brl(o.restante)}`,
-    L / 2, y + hv - 46, { tam: 23, cor: COR.rosaClaro, alinhar: 'center' });
-  y += hv + 30;
-
-  if (cfg.pix) {
-    y = escrever(ctx, `Pix: ${cfg.pix}`, L / 2, y, { tam: 30, peso: 700, cor: COR.bordo, alinhar: 'center' }) + 14;
-  }
-  if (o.obs) {
-    y = escrever(ctx, o.obs, L / 2, y + 4, { tam: 23, cor: COR.cinza, alinhar: 'center', largura: L - 2 * M, max: 4 }) + 10;
+  if (limite - y > 90) {
+    escrever(ctx, 'Obrigada pela preferência!', L / 2, y + (limite - y) / 2 - 22, { tam: 38, fonte: SERIF, estilo: 'italic', cor: COR.rosaForte, alinhar: 'center' });
   }
 
   // Rodapé bordô
-  const rod = 130;
-  if (y + 70 < A - rod - 20) {
-    escrever(ctx, 'Obrigada pela preferência!', L / 2, Math.max(y + 20, A - rod - 110), { tam: 40, fonte: SERIF, estilo: 'italic', cor: COR.rosaForte, alinhar: 'center' });
-  }
   ctx.fillStyle = COR.rosa;
-  ctx.fillRect(0, A - rod - 6, L, 6);
+  ctx.fillRect(0, topoRodape - 6, L, 6);
   ctx.fillStyle = COR.bordo;
-  ctx.fillRect(0, A - rod, L, rod);
+  ctx.fillRect(0, topoRodape, L, rod);
   const contato = [cfg.empresa, cfg.telefone && `WhatsApp ${cfg.telefone}`, cfg.instagram].filter(Boolean).join('   ·   ');
-  escrever(ctx, contato, L / 2, A - rod + 28, { tam: 27, peso: 700, cor: COR.dourado, alinhar: 'center' });
+  escrever(ctx, contato, L / 2, topoRodape + 24, { tam: 27, peso: 700, cor: COR.dourado, alinhar: 'center' });
   const endereco = [cfg.endereco, cfg.bairro, cfg.cidade].filter(Boolean).join(' – ') + (cfg.cnpj ? `   ·   CNPJ ${cfg.cnpj}` : '');
-  escrever(ctx, endereco, L / 2, A - rod + 72, { tam: 22, cor: COR.rosa, alinhar: 'center' });
+  escrever(ctx, endereco, L / 2, topoRodape + 66, { tam: 22, cor: COR.rosa, alinhar: 'center' });
 
   return canvas;
 }
 
 export const canvasParaJpeg = (canvas, q = 0.9) => new Promise(ok => canvas.toBlob(ok, 'image/jpeg', q));
 
-// Monta um PDF de uma página com a imagem JPEG ocupando a folha A4 inteira
-export async function canvasParaPdf(canvas, titulo = 'Orçamento') {
-  const jpeg = new Uint8Array(await (await canvasParaJpeg(canvas)).arrayBuffer());
+// Monta um PDF de uma página com a imagem JPEG (já pronta) ocupando a folha A4 inteira
+export async function jpegParaPdf(jpegBlob, largura, altura, titulo = 'Orçamento') {
+  const jpeg = new Uint8Array(await jpegBlob.arrayBuffer());
   const W = 595.28, H = 841.89;
   const enc = new TextEncoder();
   const partes = [];
@@ -216,7 +225,7 @@ export async function canvasParaPdf(canvas, titulo = 'Orçamento') {
   obj(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
   obj(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`);
   offs[4] = tam;
-  add(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${canvas.width} /Height ${canvas.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`);
+  add(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${largura} /Height ${altura} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n`);
   add(jpeg);
   add('\nendstream\nendobj\n');
   const conteudo = `q ${W} 0 0 ${H} 0 0 cm /Im0 Do Q`;

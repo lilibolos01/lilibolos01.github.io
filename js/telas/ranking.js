@@ -2,10 +2,10 @@ import { todos } from '../db.js';
 import { $, $$, esc, brl, fmt, vazio, hojeISO, addDias } from '../ui.js';
 import { nomeBolo, textoVem } from '../calc.js';
 
-const montagemDe = o => o.montagem || { massa: o.receitaNome, recheios: [], cobertura: '' };
+export const montagemDe = o => o.montagem || { massa: o.receitaNome, recheios: [], cobertura: '' };
 
 // Agrupa os pedidos pelo bolo completo (massa + recheios + cobertura)
-function rankingBolos(lista) {
+export function rankingBolos(lista) {
   const mapa = new Map();
   for (const o of [...lista].sort((a, b) => (b.numero || 0) - (a.numero || 0))) {
     const m = montagemDe(o);
@@ -21,11 +21,12 @@ function rankingBolos(lista) {
   return [...mapa.values()].sort((a, b) => b.qtd - a.qtd || b.total - a.total);
 }
 
-function linkOrcar({ o }) {
+export function linkOrcar({ o }, clienteId = "") {
   if (!o.massaId) return '';
   const p = [`m=${o.massaId}`, `f=${o.fatias}`];
   if (o.recheioIds?.length) p.push(`rs=${o.recheioIds.join(',')}`);
   if (o.coberturaId) p.push(`c=${o.coberturaId}`);
+  if (clienteId) p.push(`cli=${clienteId}`);
   return `#/orcamento/novo/${p.join('&')}`;
 }
 

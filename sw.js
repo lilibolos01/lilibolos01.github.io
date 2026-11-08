@@ -1,6 +1,6 @@
 // Guarda os arquivos do app no celular para abrir sem internet.
 // Ao publicar uma nova versão, aumente o número abaixo.
-const VERSAO = 'lili-bolos-v1';
+const VERSAO = 'lili-bolos-v2';
 const ARQUIVOS = [
   './', 'index.html', 'manifest.webmanifest', 'css/style.css',
   'js/app.js', 'js/nav.js', 'js/db.js', 'js/calc.js', 'js/ui.js', 'js/pdf.js',
